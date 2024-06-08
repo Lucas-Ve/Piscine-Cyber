@@ -1,0 +1,10 @@
+version: '3'
+
+services:
+  mycontainer:
+    build:
+      context: .
+      dockerfile: Dockerfile 
+    volumes:
+      - /home/lveloso/Documents/PicineCyber/ft_otp:/app
+    command: tail -f /dev/null

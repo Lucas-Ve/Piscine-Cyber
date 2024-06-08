@@ -1,0 +1,14 @@
+version: '3'
+
+services:
+  ft_onion:
+    build:
+      context: .
+      args:
+        - USER_PASSWORD=${USER_PASSWORD}
+      dockerfile: Dockerfile
+    container_name: ft_onion
+    ports:
+      - "8080:8080"
+      - "4343:4343"
+    restart: always

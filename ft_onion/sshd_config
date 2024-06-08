@@ -1,0 +1,7 @@
+Port 4343
+PermitRootLogin no
+PasswordAuthentication no
+PubkeyAuthentication yes
+ChallengeResponseAuthentication no
+UsePAM no
+AuthorizedKeysFile      .ssh/authorized_keys

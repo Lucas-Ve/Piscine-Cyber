@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+
+import sys
+import re
+import hashlib
+import os
+from cryptography.fernet import Fernet
+import time
+import struct
+import hmac
+import qrcode_terminal
+
+QR = False
+
+def in_ft_otp_key(hex_key):
+    # key = hashlib.sha256(key.encode('utf-8')).hexdigest()
+    try :
+        bytes.fromhex(hex_key)
+    except ValueError:
+        print("./ft_otp: error: key not valid.")
+        sys.exit(1)
+    key = Fernet.generate_key()
+    cipher = Fernet(key)
+    encrypted_key = cipher.encrypt(hex_key.encode())
+    f = open("ft_otp.key", 'wb')
+    f.write(key + b'\n' + encrypted_key)
+    print("Key was successfully saved in ft_otp.key.")
+
+def key_in_file(key):
+    content = key.strip()
+    try:
+        with open(key, 'r') as file:
+            content = file.read().strip()
+    except FileNotFoundError:
+        pass
+
+    pattern = re.compile(r'^[0-9a-fA-F]{64,}$')
+    if(pattern.search(content)):
+        in_ft_otp_key(content)
+    else:
+        print("./ft_otp: error: key must be 64 hexadecimal characters.")
+
+def hotp_algo(file):
+    global QR
+    try:
+        with open(file, 'rb') as f:
+            key = f.readline().strip()
+            encrypted_key = f.readline().strip()
+        cipher = Fernet(key)
+        decrypted_key = cipher.decrypt(encrypted_key).decode()
+        pattern = re.compile(r'^[0-9a-fA-F]{64,}$')
+    except:
+        print("./ft_otp: error: key cripted in ft_otp.key is not valid.")
+        sys.exit(1)
+    if(pattern.search(decrypted_key)):
+        # key = hashlib.sha256(key.encode('utf-8')).hexdigest()
+        key_B = bytes.fromhex(decrypted_key) 
+        current_time = int(time.time())
+        counter = current_time // 30
+        # Convert the counter to its big-endian representation
+        counter_bytes = struct.pack('>Q', counter)
+        
+        # Create HMAC-SHA-1 value
+        hmac_sha1 = hmac.new(key_B, counter_bytes, hashlib.sha1).digest()
+        
+        # Truncate the HMAC to obtain the HOTP value
+        offset = hmac_sha1[-1] & 0x0F
+        binary = (
+            ((hmac_sha1[offset] & 0x7f) << 24) |
+            ((hmac_sha1[offset + 1] & 0xff) << 16) |
+            ((hmac_sha1[offset + 2] & 0xff) << 8) |
+            (hmac_sha1[offset + 3] & 0xff)
+        )
+        
+        # Modulo to get the final HOTP value
+        hotp_value = binary % (10 ** 6)
+        
+        # Return the HOTP value as a zero-padded string
+        if QR:
+            qrcode_terminal.draw(str(hotp_value).zfill(6))
+        else:
+            print(str(hotp_value).zfill(6))
+    else:
+        print("Error: key must be 64 hexadecimal characters in ft_otp.key.")
+    
+
+def parsing(argv):
+    global QR
+    args = argv[1:]
+    if args[0] == "-g" or args[0] == "-k" or args[0] == "-qr":
+        if args[0] == "-g":
+            key_in_file(args[1])
+        elif args[0] == "-k" or args[0] == "-qr":
+            if args[0] == "-qr":
+                QR = True 
+            if(args[1] != "ft_otp.key"):
+                print("Error : With -k the file is ft_otp.key.")
+                exit(1)
+            if not os.path.exists("ft_otp.key"):
+                print(f"error: ft_otp.key does not exist.")
+                sys.exit(1)
+            hotp_algo(args[1])
+            
+    else:
+        print("Error: ./ft_otp -g key or ./ft_otp -k ft_otp.key")
+
+def main():
+    if len(sys.argv) != 3:
+        print("Usage: ./ft_otp -g key or ./ft_otp -k ft_otp.key")
+        return
+    parsing(sys.argv)
+
+
+if __name__ == "__main__":
+    main()

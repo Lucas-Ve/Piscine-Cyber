@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin, urlparse
+
+class Spider:
+    def_depth_level = 5
+    def_files_saved = "./data/"
+
+    def __init__(self, argc, argv):
+        self.argc = argc
+        self.argv = argv
+        self.depth_level = self.def_depth_level
+        self.files_saved = self.def_files_saved
+        self.recursive = False
+        self.url = ""
+        self.extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp']
+        self.parse_argument()
+        self.links_visited = set()
+        
+    def parse_argument(self):
+        args = self.argv[1:]
+        i = 0
+        while i < len(args):
+            if args[i] == '-rlp':
+                self.recursive = True
+            elif args[i] == '-r':
+                self.recursive = True
+            elif args[i] == '-l':
+                if self.recursive == False:
+                    print("Error: Depth level specified without recursive option.")
+                    sys.exit(1)
+                elif i + 1 < len(args) and args[i+1].isdigit():
+                    self.depth_level = int(args[i+1])
+                    i += 1
+                # else:
+                #     print("Error: Depth level not specified or invalid after -l.")
+                #     sys.exit(1)
+            elif args[i] == '-p':
+                if i + 1 < len(args) and args[i+1]:
+                    self.files_saved = args[i+1]
+                    i += 1
+                else:
+                    print("Error: Save path not specified or empty after -p.")
+                    sys.exit(1)
+            elif args[i].startswith('-'):
+                print(f"Error: Unknown option {args[i]}")
+                sys.exit(1)
+            else:
+                self.url = args[i]
+            i += 1
+
+    def download_images(self, url, depth):
+        if depth > self.depth_level:
+            return
+
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content, 'html.parser')
+            imgs = soup.find_all('img')
+            self.save_images(url, imgs)
+
+            if self.recursive:
+                links = soup.find_all('a', href=True)
+                for link in links:
+                    next_url = urljoin(url, link['href'])
+                    if next_url in self.links_visited:
+                        continue
+                    if urlparse(next_url).netloc == urlparse(url).netloc:
+                        if depth + 1 <= self.depth_level:
+                            self.links_visited.add(next_url)    
+                            self.download_images(next_url, depth + 1)
+        except Exception as e:
+            print(f"Error accessing {url}: {e}")
+
+    def save_images(self, base_url, imgs):
+        if not os.path.exists(self.files_saved):
+            os.makedirs(self.files_saved)
+
+        for img in imgs:
+            img_url = urljoin(base_url, img.get('src'))
+            if any(img_url.lower().endswith(ext) for ext in self.extensions):
+                try:
+                    img_data = requests.get(img_url).content
+                    img_name = os.path.join(self.files_saved, os.path.basename(urlparse(img_url).path))
+                    with open(img_name, 'wb') as handler:
+                        handler.write(img_data)
+                    print(f"Downloaded: {img_url}")
+                except Exception as e:
+                    print(f"Error downloading {img_url}: {e}")
+
+    
+    def exec(self):
+        if not self.url:
+            print("URL missing.")
+            return
+
+        self.download_images(self.url, 0)
+
+def main():
+    if len(sys.argv) == 1:
+        print("Usage: ./spider [-rlp] URL")
+        sys.exit(1)
+    spider = Spider(len(sys.argv) - 1, sys.argv)
+    spider.exec()
+
+
+if __name__ == "__main__":
+    main()
+		

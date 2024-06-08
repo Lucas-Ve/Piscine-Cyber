@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+from datetime import datetime
+from PIL.ExifTags import TAGS
+from PIL import Image, ExifTags
+
+
+def display_metadata(image_path):
+	try:
+		image = Image.open(image_path)
+		print(" Basic Data : ")
+		
+		print(f"  - Type: {image.format}")
+		print(f"  - Width: {image.width} pixels")
+		print(f"  - Height: {image.height} pixels")
+		print(f"  - Mode: {image.mode}")
+		creation_time = os.path.getctime(image_path)
+		creation_time_formatted = datetime.fromtimestamp(creation_time).strftime('%Y-%m-%d %H:%M:%S')
+		print(f"  - Date de création: {creation_time_formatted}")
+
+		exif_data = image._getexif()
+		if exif_data:
+			print(" EXIF Data : ")
+			for tag, value in exif_data.items():
+				tag_name = TAGS.get(tag, tag)
+				print(f" -{tag_name}: {value}")
+		else:
+			print("No EXIF data found.")
+	except Exception as e:
+		print("ERROR:", e)
+
+
+def main():
+	if len(sys.argv) <= 1:
+		print("Usage: ./scorpion FILE1 [FILE2 ...]")
+		return
+
+	for i in range(1, len(sys.argv)):
+		print("Name : {}".format(sys.argv[i]))
+		display_metadata(sys.argv[i])
+		print()
+
+
+if __name__ == "__main__":
+    main()
