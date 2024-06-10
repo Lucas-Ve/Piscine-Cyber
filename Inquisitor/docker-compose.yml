@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  inquisitor:
+    build: .
+    network_mode: host
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    environment:
+      - PYTHONUNBUFFERED=1

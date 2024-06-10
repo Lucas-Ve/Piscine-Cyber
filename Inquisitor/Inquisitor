@@ -1,1 +1,60 @@
 #!/usr/bin/env python3
+
+import sys
+import argparse
+import re
+import scapy.all as scapy
+
+def is_valid_ip(ip_str):
+	try:
+		nums = ip_str.split('.')
+		if len(nums) != 4:
+			return False
+		for n in nums:
+			if int(n) < 0 or 255 < int(n):
+				return False
+		return True
+	except:
+		return False
+
+def is_valid_mac(mac_str):
+	mac_pattern = re.compile(r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$')
+	return bool(mac_pattern.match(mac_str))
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="ARP poisoning script")
+    parser.add_argument("IP_src", help="Source IP address")
+    parser.add_argument("MAC_src", help="Source MAC address")
+    parser.add_argument("IP_target", help="Target IP address")
+    parser.add_argument("MAC_target", help="Target MAC address")
+    
+    args = parser.parse_args()
+    return args
+
+def validate_args(args):
+    try:
+        if not is_valid_ip(args.IP_src):
+            error_exit("Invalid IP-src")
+        if not is_valid_mac(args.MAC_src):
+            error_exit("Invalid MAC-src")
+        if not is_valid_ip(args.IP_target):
+            error_exit("Invalid IP-target")
+        if not is_valid_mac(args.MAC_target):
+            error_exit("Invalid MAC-target")
+    except Exception as e:
+        print("Error: IP or MAC are not valid!")
+        sys.exit(1)
+
+def main():
+    args = parse_args()
+    if len(sys.argv) != 5:
+        print("Usage: ./ft_Inquisitor <IP-src> <MAC-src> <IP-target> <MAC-target>")
+        return
+    validate_args(args)
+    print(f"Source IP: {args.IP_src}")
+    print(f"Source MAC: {args.MAC_src}")
+    print(f"Target IP: {args.IP_target}")
+    print(f"Target MAC: {args.MAC_target}")
+
+if __name__ == "__main__":
+    main()
