@@ -13,10 +13,10 @@ RUN apt-get update && apt-get install -y \
 RUN pip install scapy
 
 # Copy the inquisitor script
-COPY inquisitor /usr/src/inquisitor
+COPY Inquisitor /usr/src/Inquisitor
 
 # Set the working directory
 WORKDIR /usr/src
 
 # Entry point to run the inquisitor script
-ENTRYPOINT ["python3", "inquisitor"]
+ENTRYPOINT ["python3", "Inquisitor"]

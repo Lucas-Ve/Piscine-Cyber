@@ -66,10 +66,17 @@ def decrypt_files(directory, key, silent):
         filepath = os.path.join(directory, filename)
         if os.path.isfile(filepath):
             if filepath.endswith('.ft'):
-                cipher = Fernet(key)
+                try:
+                    cipher = Fernet(key)
+                except:
+                    print("Error : Wrong key")
+                    sys.exit(1)
                 with open(filepath, 'rb') as file:
                     encrypted_content = file.read()
-                decrypted_content = cipher.decrypt(encrypted_content)
+                try:
+                    decrypted_content = cipher.decrypt(encrypted_content)
+                except:
+                    continue
                 with open(filepath, 'wb') as file:
                     file.write(decrypted_content)
 
