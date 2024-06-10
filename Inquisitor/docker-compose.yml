@@ -3,36 +3,32 @@ version: '3.8'
 services:
   inquisitor:
     build: .
-    network_mode: bridge
-    cap_add:
-      - NET_RAW
-      - NET_ADMIN
-    environment:
-      - PYTHONUNBUFFERED=1
-    depends_on:
-      - ftpserver
-      - ftpclient
+    image: inquisitor
+    container_name: inquisitor
+    networks:
+      - inquisitor
 
   ftpserver:
     image: stilliard/pure-ftpd:hardened
     container_name: ftpserver
     ports:
-      - "21:21"
+      # - "21:21"
       - "30000-30009:30000-30009"
     environment:
       PUBLICHOST: "127.0.0.1"
     networks:
-      - mynet
+      - inquisitor
 
   ftpclient:
-    image: delfer/alpine-ftp-client
+    image: jlesage/filezilla
     container_name: ftpclient
-    depends_on:
-      - ftpserver
+    ports:
+      - "5800:5800"
+    volumes:
+      - ./storage:/storage:rw
     networks:
-      - mynet
-    entrypoint: ["sh", "-c", "while true; do sleep 10; done"]
+      - inquisitor
+
 
 networks:
-  mynet:
-    driver: bridge
+  inquisitor:

