@@ -67,9 +67,9 @@ This project aims to develop a small program to understand how malware, specific
 
 If required, compile the program using the provided `Makefile`:
 
-Encrypt files: make or make encrypt
-Encrypt files silently: make silent
-Decrypt files: make decrypt
-Decrypt files silently: make decrypt-silent
-Display version: make version
-Help: make help
+- **Encrypt files**: make or make encrypt
+- **Encrypt files silently**: make silent
+- **Decrypt files**: make decrypt
+- **Decrypt files silently**: make decrypt-silent
+- **Display version**: make version
+- **Help**: make help
