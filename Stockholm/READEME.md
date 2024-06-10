@@ -22,9 +22,9 @@ This project aims to develop a small program to understand how malware, specific
 
 If required, compile the program using the provided `Makefile`:
 
-- **Encrypt files**: make or make encrypt
-- **Encrypt files silently**: make silent
-- **Decrypt files**: make decrypt
+- **Encrypt files**: make or make encrypt or ./Stockholm
+- **Encrypt files silently**: make silent or ./Stockholm -s or ./Stockholm –silent
+- **Decrypt files**: make decrypt or ./Stockholm -r or ./Stockholm -reverse
 - **Decrypt files silently**: make decrypt-silent
-- **Display version**: make version
-- **Help**: make help
+- **Display version**: make version or ./Stockholm -v or ./Stockholm -version
+- **Help**: make help or ./Stockholm -h or ./Stockholm -help
