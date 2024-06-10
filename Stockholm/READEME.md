@@ -12,56 +12,11 @@ This project aims to develop a small program to understand how malware, specific
 - Encrypted files will have the `.ft` extension added to them.
 - The program provides options for help, version display, and silent operation.
 
-## Usage
-
-### Running the Program
-
-1. **Help Menu**:
-    ```sh
-    ./Stockholm --help
-    ```
-    or
-    ```sh
-    ./Stockholm -h
-    ```
-
-2. **Display Version**:
-    ```sh
-    ./Stockholm --version
-    ```
-    or
-    ```sh
-    ./Stockholm -v
-    ```
-
-3. **Encrypt Files**:
-    - By default, the program will show each encrypted file.
-    ```sh
-      ./Stockholm
-      ```
-    - To run silently:
-      ```sh
-      ./Stockholm --silent
-      ```
-      or
-      ```sh
-      ./Stockholm -s
-      ```
-
-4. **Decrypt Files**:
-    ```sh
-    ./Stockholm --reverse <key>
-    ```
-    or
-    ```sh
-    ./Stockholm -r <key>
-    ```
-
 ### Program Requirements
 
 - **Environment**: The program should be run in a Linux environment, preferably within a virtual machine or Docker.
 - **Folder**: Ensure the `infection` folder exists in your HOME directory.
-- **Dependencies**: Install necessary libraries like `openssl` or `libsodium` as per the chosen encryption method.
+- **Dependencies**: Install necessary libraries like `Fernet`.
 
 ## Compilation
 
