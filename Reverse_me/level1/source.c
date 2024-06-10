@@ -8,8 +8,8 @@ int	main(void)
 	printf("Please enter key: ");
 	scanf("%99s", str);
 	if (strcmp(str, "__stack_check"))
-		printf("Nope.");
+		printf("Nope.\n");
 	else
-		printf("Good job.");
+		printf("Good job.\n");
 	return (0);
 }
