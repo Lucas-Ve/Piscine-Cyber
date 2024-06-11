@@ -1,4 +1,4 @@
-.PHONY: all build run fclean clean server client inquisitor show-ip info
+.PHONY: all build run fclean clean server client inquisitor show-ip info prune clean
 
 all: build
 
@@ -47,6 +47,9 @@ client:
 
 inquisitor:
 	docker exec -it inquisitor /bin/bash
+
+prune	: clean
+	-docker system prune -f -a
 
 info	:
 	@printf "[docker informations]\n"
