@@ -6,8 +6,7 @@ CLIENT_CONTAINER := ftpclient
 NAME := Inquisitor.py
 
 build:
-	docker-compose build
-	docker-compose up -d
+	docker-compose up --build
 	@echo "Waiting for containers to start..."
 	@sleep 5
 
@@ -30,7 +29,7 @@ MAC_TARGET := $(shell docker inspect --format='{{range .NetworkSettings.Networks
 run:
 	@echo "Running Inquisitor:"
 	@echo ./$(NAME) $(IP_SRC) $(MAC_SRC) $(IP_TARGET) $(MAC_TARGET)
-	docker exec inquisitor python3 /usr/src/Inquisitor $(IP_SRC) $(MAC_SRC) $(IP_TARGET) $(MAC_TARGET)
+	docker exec inquisitor python3 /usr/src/app/Inquisitor.py $(IP_SRC) $(MAC_SRC) $(IP_TARGET) $(MAC_TARGET)
 
 show-ip:
 	@echo "L'adresse IP du serveur FTP est : $(IP_SRC)"
@@ -39,7 +38,7 @@ show-ip:
 	@echo "L'adresse MAC du client FTP est : $(MAC_TARGET)"
 
 server:
-	docker exec -it ftpserver /bin/bash
+	docker exec -it ftpserver /bin/sh
 
 client:
 	docker exec -it ftpclient /bin/sh

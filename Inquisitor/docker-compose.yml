@@ -9,13 +9,14 @@ services:
       - inquisitor
 
   ftpserver:
-    image: stilliard/pure-ftpd:hardened
+    image: delfer/alpine-ftp-server
     container_name: ftpserver
     ports:
-      # - "21:21"
-      - "30000-30009:30000-30009"
+      - 21000-21010:21000-21010
     environment:
-      PUBLICHOST: "127.0.0.1"
+      - USERS=one|Qwertyuiop123
+    volumes:
+      - ./one:/ftp/one
     networks:
       - inquisitor
 
@@ -32,3 +33,4 @@ services:
 
 networks:
   inquisitor:
+    driver: bridge

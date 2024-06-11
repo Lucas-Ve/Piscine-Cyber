@@ -3,7 +3,7 @@
 import sys
 import argparse
 import re
-import scapy.all as scapy
+from scapy.all import ARP, Ether, sendp, sniff, conf
 
 def is_valid_ip(ip_str):
 	try:
