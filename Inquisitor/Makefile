@@ -1,6 +1,9 @@
-.PHONY: build run fclean clean server client inquisitor show-ip
+.PHONY: all build run fclean clean server client inquisitor show-ip info
+
+all: build
 
 # Définir les noms des conteneurs
+TARGET := inquisitor
 SERVER_CONTAINER := ftpserver
 CLIENT_CONTAINER := ftpclient
 NAME := Inquisitor.py
@@ -29,7 +32,6 @@ MAC_TARGET := $(shell docker inspect --format='{{range .NetworkSettings.Networks
 run:
 	@echo "Running Inquisitor:"
 	@echo ./$(NAME) $(IP_SRC) $(MAC_SRC) $(IP_TARGET) $(MAC_TARGET)
-	docker exec inquisitor python3 /usr/src/app/Inquisitor.py $(IP_SRC) $(MAC_SRC) $(IP_TARGET) $(MAC_TARGET)
 
 show-ip:
 	@echo "L'adresse IP du serveur FTP est : $(IP_SRC)"
@@ -45,3 +47,27 @@ client:
 
 inquisitor:
 	docker exec -it inquisitor /bin/bash
+
+info	:
+	@printf "[docker informations]\n"
+
+	@echo $(CYAN)$(SERVER_CONTAINER)$(RESET)
+	@printf " - IPAddress	: "
+	@docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(SERVER_CONTAINER)
+	@printf " - MacAddress	: "
+	@docker inspect --format='{{range .NetworkSettings.Networks}}{{.MacAddress}}{{end}}' $(SERVER_CONTAINER)
+
+	@echo $(CYAN)$(CLIENT_CONTAINER)$(RESET)
+	@printf " - IPAddress	: "
+	@docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(CLIENT_CONTAINER)
+	@printf " - MacAddress	: "
+	@docker inspect --format='{{range .NetworkSettings.Networks}}{{.MacAddress}}{{end}}' $(CLIENT_CONTAINER)
+
+	@echo $(CYAN)$(TARGET)$(RESET)
+	@printf " - IPAddress	: "
+	@docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(TARGET)
+	@printf " - MacAddress	: "
+	@docker inspect --format='{{range .NetworkSettings.Networks}}{{.MacAddress}}{{end}}' $(TARGET)
+
+cp	:
+	docker cp Inquisitor.py $(TARGET):/usr/src/app
