@@ -1,0 +1,19 @@
+#!/usr/bin/env python3
+
+import argparse
+
+def main():
+    parser = argparse.ArgumentParser(description='Process some options.')
+    parser.add_argument('url', type=str, help='URL to process')
+    parser.add_argument('-o', type=str, default='default_archive.zip', help='Archive file (default: default_archive.zip)')
+    parser.add_argument('-X', type=str, default='GET', choices=['GET', 'POST'], help='Type of request (default: GET)')
+
+    args = parser.parse_args()
+
+    # Print the parsed arguments (you would replace this with your actual handling logic)
+    print(f"URL: {args.url}")
+    print(f"Archive file: {args.o}")
+    print(f"Request type: {args.X}")
+
+if __name__ == "__main__":
+    main()
