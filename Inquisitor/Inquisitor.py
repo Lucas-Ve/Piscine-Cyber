@@ -8,7 +8,6 @@ import signal
 import hashlib
 import time
 
-# Define a global variable to control the main loop
 running = True
 seen_packet_hashes = {}  # To keep track of seen packet payloads and their timestamps
 Verbose = False
@@ -59,13 +58,11 @@ def validate_args(args):
         sys.exit(1)
 
 def payload_hash(packet):
-    """Returns a hash for the payload of a given packet to identify duplicates."""
     if packet.haslayer('Raw'):
         return hashlib.md5(packet['Raw'].load).hexdigest()
     return None
 
 def clean_seen_packets(timeout=1):
-    """Remove entries older than the timeout from the seen_packet_hashes."""
     current_time = time.time()
     for packet_hash in list(seen_packet_hashes):
         if current_time - seen_packet_hashes[packet_hash] > timeout:

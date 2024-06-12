@@ -2,11 +2,6 @@
 
 all: build
 
-# Définir les noms des conteneurs
-TARGET := inquisitor
-SERVER_CONTAINER := ftpserver
-CLIENT_CONTAINER := ftpclient
-NAME := Inquisitor.py
 
 build:
 	docker-compose up --build
@@ -22,6 +17,12 @@ fclean: clean
 	-docker rmi -f $(shell docker images -qa) 2>/dev/null
 	-docker volume rm $(shell docker volume ls -q) 2>/dev/null
 	-docker network rm $(shell docker network ls -q) 2>/dev/null
+
+# Définir les noms des conteneurs
+TARGET := inquisitor
+SERVER_CONTAINER := ftpserver
+CLIENT_CONTAINER := ftpclient
+NAME := Inquisitor.py
 
 # Utiliser la commande shell pour obtenir les adresses IP et MAC des conteneurs serveur et client
 IP_SRC := $(shell docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(SERVER_CONTAINER))
@@ -49,7 +50,7 @@ inquisitor:
 	docker exec -it inquisitor /bin/bash
 
 prune	: clean
-	-docker system prune -f -a
+	docker system prune -f -a
 
 info	:
 	@printf "[docker informations]\n"
