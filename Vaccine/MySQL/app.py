@@ -1,36 +1,30 @@
-from flask import Flask, render_template_string
-from sqlalchemy import create_engine, MetaData, Table
+import os
+from flask import Flask, request, jsonify, render_template_string
+from flaskext.mysql import MySQL
 
 app = Flask(__name__)
+app.config['MYSQL_DATABASE_HOST'] = 'mariadb'
+app.config['MYSQL_DATABASE_USER'] = 'root'
+app.config['MYSQL_DATABASE_PASSWORD'] = 'password'
+app.config['MYSQL_DATABASE_DB'] = 'prod'
+app.config['DEBUG'] = True
+mysql = MySQL(app)
 
-DATABASE_URI = 'mysql+pymysql://root:root@db/testdb'
 
-engine = create_engine(DATABASE_URI)
-metadata = MetaData(bind=engine)
-metadata.reflect(bind=engine)
-users = Table('users', metadata, autoload_with=engine)
-
-@app.route('/')
+@app.route('/', methods=['GET'])
 def index():
-    with engine.connect() as connection:
-        result = connection.execute(users.select())
-        users_list = [dict(row) for row in result]
+    name = request.args.get('name')
+    results = query = error = None
+    if name:
+        cur = mysql.get_db().cursor()
+        query = f"SELECT * FROM users WHERE name = '{name}'"
+        try:
+            cur.execute(query)
+            results = cur.fetchall()
+        except Exception as e:
+            error = str(e)
+    return render_template_string(open("main.html").read(), results=results, query=query, error=error)
 
-    html = """
-    <html>
-    <head><title>Users</title></head>
-    <body>
-        <h1>Users</h1>
-        <table border='1'>
-            <tr><th>Email</th><th>Password</th></tr>
-            {% for user in users %}
-            <tr><td>{{ user.email }}</td><td>{{ user.password }}</td></tr>
-            {% endfor %}
-        </table>
-    </body>
-    </html>
-    """
-    return render_template_string(html, users=users_list)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

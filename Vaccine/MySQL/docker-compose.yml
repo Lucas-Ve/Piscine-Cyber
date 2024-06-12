@@ -1,24 +1,25 @@
 version: '3.1'
 
 services:
-  db:
-    image: mysql:5.7
-    container_name: mysql
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: testdb
-    volumes:
-      - db_data:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-
   web:
-    build: .
-    container_name: web
+    container_name: "web"
+    build:
+      dockerfile: Dockerfile
+    depends_on:
+      - mariadb
     ports:
       - "5000:5000"
-    depends_on:
-      - db
+    networks:
+      app_net:
+  mariadb:
+    container_name: "mariadb"
+    build:
+      dockerfile: Dockerfile.mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: prod
+    networks:
+      app_net:
 
-volumes:
-  db_data:
+networks:
+  app_net:

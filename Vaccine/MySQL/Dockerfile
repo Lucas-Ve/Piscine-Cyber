@@ -1,17 +1,21 @@
-# Utiliser une image de base pour Python
-FROM python:3.9-slim
+FROM python:3.8-slim
 
-# Installer les dépendances
-RUN pip install flask sqlalchemy pymysql
+# Install required packages and MariaDB client
+RUN apt-get update \
+    && apt-get install -y mariadb-client libmariadb-dev \
+    && apt-get clean
 
-# Copier les fichiers de l'application dans le conteneur
-COPY . /app
-
-# Définir le répertoire de travail
+# Set the working directory
 WORKDIR /app
 
-# Exposer le port 5000
+# Install Python dependencies
+COPY requirements.txt .
+COPY app.py .
+COPY main.html .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Expose the application port
 EXPOSE 5000
 
-# Définir la commande pour démarrer l'application
+# Start the Flask app
 CMD ["python", "app.py"]
